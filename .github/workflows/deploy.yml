@@ -15,6 +15,17 @@ jobs:
         run: |
           echo "$PRIVATE_KEY" > private_key && chmod 600 private_key
           ssh -o StrictHostKeyChecking=no -i private_key ${USER}@${HOST} << EOF
+            # Install dependencies
+            sudo apt-get update
+            sudo apt-get install -y php php-cli php-mbstring php-xml php-mysql unzip
+
+            # Install Composer
+            if ! command -v composer &> /dev/null; then
+              php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
+              php composer-setup.php --install-dir=/usr/local/bin --filename=composer
+              php -r "unlink('composer-setup.php');"
+            fi
+
             mkdir -p /var/www && sudo chown ${USER}:${USER} /var/www
             cd /var/www
 
@@ -22,9 +33,19 @@ jobs:
             sudo chown -R ${USER}:${USER} my-laravel-app || true
             rm -rf my-laravel-app
 
-            # Clone via SSH (requires SSH key on EC2 and added to GitHub)
+            # Clone the repository
             git clone git@github.com:nycacsoft-jaga/laravel-app.git my-laravel-app
+            if [ ! -d "my-laravel-app" ]; then
+              echo "Failed to clone repository"
+              exit 1
+            fi
             cd my-laravel-app
+
+            # Verify composer.json exists
+            if [ ! -f "composer.json" ]; then
+              echo "composer.json not found in my-laravel-app"
+              exit 1
+            fi
 
             composer install --no-dev --optimize-autoloader
 
