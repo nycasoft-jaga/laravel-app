@@ -44,11 +44,8 @@ jobs:
           sudo chown -R ${USER}:${USER} my-laravel-app || true
           rm -rf my-laravel-app
 
-          # Debug: Test SSH connection to GitHub
-          ssh -o StrictHostKeyChecking=no -i private_key git@github.com || echo "SSH connection to GitHub failed"
-
           # Clone the repository with host key verification disabled
-          GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no" git clone git@github.com:nycacsoft-jaga/laravel-app.git my-laravel-app
+          GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no" git clone https://github.com/nycasoft-jaga/laravel-app.git my-laravel-app
           if [ ! -d "my-laravel-app" ]; then
             echo "Failed to clone repository"
             exit 1
