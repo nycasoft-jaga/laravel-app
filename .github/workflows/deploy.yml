@@ -8,26 +8,41 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
 
-    - name: Set up SSH
-      run: |
-        mkdir -p ~/.ssh
-        echo "${{secrets.SSH_PRIVATE_KEY}}" > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan -H ${{secrets.EC2_HOST}} >> ~/.ssh/known_hosts
-
     - name: Deploy to EC2
+      env:
+        PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        HOST: ${{ secrets.EC2_HOST }}
+        USER: ${{ secrets.EC2_USER }}
       run: |
-        ssh ${{secrets.EC2_USERNAME}}@${{secrets.EC2_HOST}} << 'EOF'
+        echo "$PRIVATE_KEY" > private_key && chmod 600 private_key
+        ssh -o StrictHostKeyChecking=no -i private_key ${USER}@${HOST} << 'EOF'
+          # Navigate to the project directory
           cd /var/www/my-laravel-app
-          git pull origin main
+
+          # Pull the latest code (if the directory is already a Git repo)
+          git pull origin main || {
+            # If the directory is not a Git repo, clone the repository
+            cd /var/www
+            rm -rf my-laravel-app
+            git clone https://github.com/nycacsoft-jaga/laravel-app.git my-laravel-app
+            cd my-laravel-app
+          }
+
+          # Install Composer dependencies
           composer install --no-dev --optimize-autoloader
+
+          # Run Laravel-specific commands
           php artisan migrate --force
           php artisan config:cache
           php artisan route:cache
           php artisan view:cache
-          sudo systemctl restart nginx
+
+          # Set permissions (optional, adjust as needed)
+          chown -R www-data:www-data /var/www/my-laravel-app
+          chmod -R 755 /var/www/my-laravel-app/storage
         EOF
