@@ -13,25 +13,16 @@ jobs:
           HOST: ${{ secrets.EC2_HOST }}
           USER: ${{ secrets.EC2_USERNAME }}
         run: |
-          # Save the private key to a file and set permissions
-          echo "$PRIVATE_KEY" > private_key && chmod 600 private_key
-          ssh -o StrictHostKeyChecking=no -i private_key ${USER}@${HOST} << EOF
-            # Add the ondrej/php PPA to get newer PHP versions
-            sudo apt-get update
-            sudo apt-get install -y software-properties-common
-            sudo add-apt-repository ppa:ondrej/php -y
-            sudo apt-get update
+          ssh -o StrictHostKeyChecking=no -i <path-to-your-local-ssh-key> ${USER}@${HOST} << EOF
+            # Debug: Check the OS
+            cat /etc/os-release
 
-            # Install PHP 7.4 and required extensions
-            sudo apt-get install -y php7.4 php7.4-cli php7.4-mbstring php7.4-xml php7.4-mysql php7.4-zip unzip
+            # Update package manager (for Amazon Linux)
+            sudo yum update -y
 
-            # Set PHP 7.4 as the default version
-            sudo update-alternatives --set php /usr/bin/php7.4
-            sudo update-alternatives --set phpize /usr/bin/phpize7.4
-            sudo update-alternatives --set php-config /usr/bin/php-config7.4
-
-            # Disable older PHP versions (e.g., PHP 7.0) to avoid conflicts
-            sudo apt-get remove -y php7.0 php7.0-cli php7.0-mbstring php7.0-xml php7.0-mysql php7.0-zip --purge || true
+            # Install PHP 7.4 and required extensions (for Amazon Linux 2)
+            sudo amazon-linux-extras enable php7.4
+            sudo yum install -y php php-cli php-mbstring php-xml php-mysqlnd php-zip unzip
 
             # Verify PHP version
             php -v
@@ -53,11 +44,14 @@ jobs:
             sudo chown -R ${USER}:${USER} my-laravel-app || true
             rm -rf my-laravel-app
 
-            # Debug: Test SSH connection to GitHub
-            ssh -o StrictHostKeyChecking=no -i private_key git@github.com || echo "SSH connection to GitHub failed"
+            # Debug: Check if GITHUB_TOKEN is set
+            if [ -z "$GITHUB_TOKEN" ]; then
+              echo "GITHUB_TOKEN is not set"
+              exit 1
+            fi
 
-            # Clone the repository with host key verification disabled
-            GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no -i private_key" git clone git@github.com:nycacsoft-jaga/laravel-app.git my-laravel-app
+            # Clone the repository via HTTPS
+            git clone https://github.com/nycacsoft-jaga/laravel-app.git my-laravel-app
             if [ ! -d "my-laravel-app" ]; then
               echo "Failed to clone repository"
               exit 1
@@ -82,4 +76,3 @@ jobs:
             sudo chown -R ${USER}:${USER} /var/www/my-laravel-app
             chmod -R 755 /var/www/my-laravel-app/storage
           EOF
-          rm private_key
