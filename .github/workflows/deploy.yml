@@ -12,15 +12,18 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
-
+     
     - name: Deploy to EC2
       env:
         PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         HOST: ${{ secrets.EC2_HOST }}
         USER: ${{ secrets.EC2_USER }}
       run: |
+        echo "USER is: ${USER}"
+        echo "HOST is: ${HOST}"
         echo "$PRIVATE_KEY" > private_key && chmod 600 private_key
         ssh -o StrictHostKeyChecking=no -i private_key ${USER}@${HOST} << 'EOF'
+
           # Navigate to the project directory
           cd /var/www/my-laravel-app
 
