@@ -13,9 +13,16 @@ jobs:
           HOST: ${{ secrets.EC2_HOST }}
           USER: ${{ secrets.EC2_USERNAME }}
         run: |
-          ssh -o StrictHostKeyChecking=no -i <path-to-your-local-ssh-key> ${USER}@${HOST} << EOF
+          # Write the SSH private key to a file on the GitHub Actions runner
+          echo "$PRIVATE_KEY" > private_key && chmod 600 private_key
+
+          # Use the private_key file to SSH into the EC2 instance
+          ssh -o StrictHostKeyChecking=no -i private_key ${USER}@${HOST} << EOF
             # Debug: Check the OS
             cat /etc/os-release
+
+            # Write the private key for GitHub cloning to a file on the EC2 instance
+            echo "$PRIVATE_KEY" > ~/.ssh/private_key && chmod 600 ~/.ssh/private_key
 
             # Update package manager (for Amazon Linux)
             sudo yum update -y
@@ -44,14 +51,8 @@ jobs:
             sudo chown -R ${USER}:${USER} my-laravel-app || true
             rm -rf my-laravel-app
 
-            # Debug: Check if GITHUB_TOKEN is set
-            if [ -z "$GITHUB_TOKEN" ]; then
-              echo "GITHUB_TOKEN is not set"
-              exit 1
-            fi
-
-            # Clone the repository via HTTPS
-            git clone https://github.com/nycacsoft-jaga/laravel-app.git my-laravel-app
+            # Clone the repository with host key verification disabled
+            GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no -i ~/.ssh/private_key" git clone https://github.com/nycasoft-jaga/laravel-app.git my-laravel-app
             if [ ! -d "my-laravel-app" ]; then
               echo "Failed to clone repository"
               exit 1
@@ -75,4 +76,10 @@ jobs:
 
             sudo chown -R ${USER}:${USER} /var/www/my-laravel-app
             chmod -R 755 /var/www/my-laravel-app/storage
+
+            # Clean up the private key on the EC2 instance
+            rm ~/.ssh/private_key
           EOF
+
+          # Clean up the private key on the GitHub Actions runner
+          rm private_key
