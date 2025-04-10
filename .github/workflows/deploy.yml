@@ -12,7 +12,9 @@ jobs:
           PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           HOST: ${{ secrets.EC2_HOST }}
           USER: ${{ secrets.EC2_USERNAME }}
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
+          # Save the private key to a file and set permissions
           echo "$PRIVATE_KEY" > private_key && chmod 600 private_key
           ssh -o StrictHostKeyChecking=no -i private_key ${USER}@${HOST} << EOF
             # Add the ondrej/php PPA to get newer PHP versions
@@ -53,7 +55,7 @@ jobs:
             rm -rf my-laravel-app
 
             # Clone the repository via HTTPS
-            git clone https://github.com/nycacsoft-jaga/laravel-app.git my-laravel-app
+            git clone https://$GITHUB_TOKEN@github.com/nycacsoft-jaga/laravel-app.git my-laravel-app
             if [ ! -d "my-laravel-app" ]; then
               echo "Failed to clone repository"
               exit 1
@@ -78,4 +80,4 @@ jobs:
             sudo chown -R ${USER}:${USER} /var/www/my-laravel-app
             chmod -R 755 /var/www/my-laravel-app/storage
           EOF
-            
+            rm private_key
