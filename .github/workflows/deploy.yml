@@ -15,45 +15,60 @@ jobs:
         run: |
           echo "$PRIVATE_KEY" > private_key && chmod 600 private_key
           ssh -o StrictHostKeyChecking=no -i private_key ${USER}@${HOST} << EOF
-            # Install dependencies
-            sudo yum update
-            sudo yum install -y php php-cli php-mbstring php-xml php-mysql unzip
+          # Add the ondrej/php PPA to get newer PHP versions
+          sudo apt-get update
+          sudo apt-get install -y software-properties-common
+          sudo add-apt-repository ppa:ondrej/php -y
+          sudo apt-get update
 
-            # Install Composer
-            if ! command -v composer &> /dev/null; then
-              php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
-              php composer-setup.php --install-dir=/usr/local/bin --filename=composer
-              php -r "unlink('composer-setup.php');"
-            fi
+          # Install PHP 7.4 and required extensions
+          sudo apt-get install -y php7.4 php7.4-cli php7.4-mbstring php7.4-xml php7.4-mysql php7.4-zip unzip
 
-            mkdir -p /var/www && sudo chown ${USER}:${USER} /var/www
-            cd /var/www
+          # Verify PHP version
+          php -v
 
-            # Clean existing directory safely
-            sudo chown -R ${USER}:${USER} my-laravel-app || true
-            rm -rf my-laravel-app
+          # Install Composer
+          if ! command -v composer &> /dev/null; then
+            php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
+            php composer-setup.php --install-dir=/usr/local/bin --filename=composer
+            php -r "unlink('composer-setup.php');"
+          fi
 
-            # Clone the repository with host key verification disabled
-            GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no" git clone https://github.com/nycasoft-jaga/laravel-app.git my-laravel-app
-            if [ ! -d "my-laravel-app" ]; then
-              echo "Failed to clone repository"
-              exit 1
-            fi
-            cd my-laravel-app
+          # Verify Composer version
+          composer --version
 
-            # Verify composer.json exists
-            if [ ! -f "composer.json" ]; then
-              echo "composer.json not found in my-laravel-app"
-              exit 1
-            fi
+          mkdir -p /var/www && sudo chown ${USER}:${USER} /var/www
+          cd /var/www
 
-            composer install --no-dev --optimize-autoloader
+          # Clean existing directory safely
+          sudo chown -R ${USER}:${USER} my-laravel-app || true
+          rm -rf my-laravel-app
 
-            php artisan migrate --force
-            php artisan config:cache
-            php artisan route:cache
-            php artisan view:cache
+          # Debug: Test SSH connection to GitHub
+          ssh -o StrictHostKeyChecking=no -i private_key git@github.com || echo "SSH connection to GitHub failed"
 
-            sudo chown -R ${USER}:${USER} /var/www/my-laravel-app
-            chmod -R 755 /var/www/my-laravel-app/storage
+          # Clone the repository with host key verification disabled
+          GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no" git clone git@github.com:nycacsoft-jaga/laravel-app.git my-laravel-app
+          if [ ! -d "my-laravel-app" ]; then
+            echo "Failed to clone repository"
+            exit 1
+          fi
+          cd my-laravel-app
+
+          # Verify composer.json exists
+          if [ ! -f "composer.json" ]; then
+            echo "composer.json not found in my-laravel-app"
+            exit 1
+          fi
+
+          # Run composer install with verbose output
+          composer install --no-dev --optimize-autoloader -vvv
+
+          php artisan migrate --force
+          php artisan config:cache
+          php artisan route:cache
+          php artisan view:cache
+
+          sudo chown -R ${USER}:${USER} /var/www/my-laravel-app
+          chmod -R 755 /var/www/my-laravel-app/storage
           EOF
