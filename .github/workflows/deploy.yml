@@ -16,8 +16,8 @@ jobs:
           echo "$PRIVATE_KEY" > private_key && chmod 600 private_key
           ssh -o StrictHostKeyChecking=no -i private_key ${USER}@${HOST} << EOF
             # Install dependencies
-            sudo apt-get update
-            sudo apt-get install -y php php-cli php-mbstring php-xml php-mysql unzip
+            sudo yum update
+            sudo yum install -y php php-cli php-mbstring php-xml php-mysql unzip
 
             # Install Composer
             if ! command -v composer &> /dev/null; then
